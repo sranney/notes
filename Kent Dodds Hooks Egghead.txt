@@ -1,0 +1,19 @@
+Kent Dodds egghead course
+
+in section two he shows a class refactoring to use hooks
+
+first off, he has put proptypes and defaultprops in as a static on the class
+
+when switching to function component, he sets propTypes on the Query function as Query.propTypes
+
+he adds the default props as a function parameter default value
+
+class Query extends Component {
+	static propTypes = {...}
+	static defaultProps = {...}
+
+APPARENTLY YOU DON'T HAVE TO IMPORT REACT ANYMORE, YOU CAN JUST IMPORT {COMPONENT}
+
+useReducer => he is using dispatch, but calling it setState - he makes dispatch act like a setState function 
+this is simple - he just merges in the data that he passes into setState into a new state obj by using the spread operator
+

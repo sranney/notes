@@ -1,0 +1,78 @@
+Hooks!!!
+to enable Hooks, all react packages need to be 16.8.0 or higher
+
+https://medium.com/@dan_abramov/making-sense-of-react-hooks-fdbde8803889
+
+we often can't break complex components down any further because logic is stateful and can't be extracted to a function or anotherh component
+when we try to handle complex logic, side effects, etc from inside a component, we end up with 
+messy, big components
+	logic inside is hard to test and 	refactor
+duplicated logic between different components and lifecycle methods
+complex patterns - render props and higher order components
+
+hooks solves these by letting us organize the logic inside a component into reusable isolated units
+
+Hooks apply the React philosophy (explicit data flow and composition) INSIDE a component, rather than just between the components.
+
+no unnecessary nesting in component tree, no mixins
+
+Do Hooks Make React Bloated?
+If React community embraces the Hooks proposal, it will reduce the number of concepts you need to juggle when writing React applications. Lets you just write functions instead of having to constantly switch between functions, classes, higher-order components and render props
+
+also likely that adopting Hooks could reduce bundle size - tends to minify better than equivalent code using classes
+
+Components are inconvenient for sharing non-visual logic because they require rendering some UI
+	- this is why render-props and HOCs became a thing
+
+functions are good for code reuse, but can't have local React state inside them
+
+since hooks are regular javascript functions, you can combine built-in Hooks provided by React into your own custom hooks
+
+Hooks are fully encapsulated — each time you call a Hook, it gets isolated local state within the currently executing component. They’re not a way to share state — but a way to share stateful logic. We don’t want to break the top-down data flow!
+
+you can pass data from Hooks to be used in other hooks
+ Unlike render props or higher-order components, Hooks don’t create a “false hierarchy” in your render tree.
+
+useEffect and useState help with creating custom hooks which can be shared across multiple components, but also they are sufficient for defining components in general
+
+hooks can cover all use cases for classes while providing more flexibility in extracting, testing, and reusing code
+
+Rules of Hooks
+while it's unusual that Hooks have to be called at the top level, you probably wouldn't want to define state in a condition even if you could. you can't define state conditionally in a class either
+
+We keep a list of Hooks per component, and move to the next item in the list whenever a Hook is used. Thanks to the Rules of Hooks, their order is the same on every render, so we can provide the component with correct state for each call. Don’t forget that React doesn’t need to do anything special to know which component is rendering — React is what’s calling your component.
+
+Perhaps you’re wondering where React keeps the state for Hooks. The answer is it’s kept in the exact same place where React keeps state for classes. React has an internal update queue which is the source of truth for any state, no matter how you define your components.
+Hooks don’t rely on Proxies or getters which can be common in modern JavaScript libraries. So arguably Hooks are less magic than some popular approaches to similar problems. I’d say Hooks are about as much magic as calling array.push and array.pop (for which the call order matters too!)
+
+hooks let us build components with less effort, and create better user experiences
+============================================
+https://medium.com/@ryardley/react-hooks-not-magic-just-arrays-cd4f1857236e
+============================================
+https://github.com/reactjs/rfcs/pull/68#issuecomment-439314884
+written by Sebastian Markbage who wrote the Hooks proposal
+============================================
+https://www.youtube.com/watch?v=zWsZcBiwgVE&feature=youtu.be&list=PLV5CVI1eNcJgNqzNwcs4UKrlJdhfDjshf
+
+why use the hooks features? 
+
+simplifies parts of react that have historically been hard
+
+when teaching react to beginners, the biggest problem they face is with JavaScript not React
+
+lifecycle functions can be difficult
+
+logic reuse - patterns
+	- a lot of patterns in react become unnecessary because of hooks
+
+
+class fields allow us to get rid of constructor function (performed implicitly) and place field directly into class 
+
+unsubscribing from effects is more boilerplate and more lifecycles in class syntax
+
+lifecycles split up logic that should be colocated
+
+render props and hocs for logic reuse are component hell
+react-fns
+
+https://egghead.io/lessons/react-use-the-usestate-react-hook?pl=react-hooks-and-suspense-650307f2

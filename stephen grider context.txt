@@ -1,0 +1,67 @@
+Stephen Grider Redux course
+
+use Context when you have a component in the middle that would only be used to pass props down to a child component
+if a component doesn't care about data, use context to bypass it
+
+
+
+either push data into context when instantiating the new context
+const newContext = React.createContext("new data");
+OR 
+you can push data into context via the HOC Provider component
+<newContext.Provider value={contextStuff}>...
+
+if you do both, set a default value and pass data into the value prop of a Provider, you will overwrite the value that is set in the createContext instantiation
+
+you can get it out of context to consume using contextType and context
+
+for classes
+class ClassName... {
+...
+static contextType = newContext;
+...
+render() {
+...
+	this.context accessed in a component
+...
+}
+OR you can put this after the class
+ClassName.contextType = newContext;
+//this makes it so that you can only use newContext as the context type for this component
+//this is different than hooks and useContext where you can easily get context data from multiple contexts just by calling useContext multiple times
+
+or you can access context data using the render props and Context.Consumer component - multiple Consumer components for different contexts can be nested within each other
+
+each separate use of a particular context's Provider component creates a new separate content environment - consumers under any provider will only listen to updates to the context data from that particular 
+
+either contextType OR Consumer should be used, NOT both
+
+you can use Consumer with both functions and classes
+
+Consumer renders the child that you pass in, which in effect means that it uses render props to render your component with data from a context Provider
+
+you can easily use Consumer to conditionally set the context data of another context by having one of the contexts' Providers inside of another's Consumer
+
+differences between Redux and Context
+
+Redux
+Distributes data to various components
+Centralizes data in a store
+Provides mechanism for changing data in the store
+
+Context
+Distributes data to various components
+
+make sure to capitalize the first letter of your contexts
+const Context = React.createContext("english");
+only required if you don't destruct the provider and consumer out of the context 
+that's because when writing the jsx, React will not interpret context as a React component, but just some normal tag
+
+reasons to continue using Redux
+excellent documentation
+well-known design patterns
+tremendous amount of open source libs
+
+benefit of Context - no need for external library
+however, 
+hard to build a store component with cross cutting concerns

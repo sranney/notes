@@ -1,0 +1,46 @@
+https://reactjs.org/docs/context.html
+Context API
+add 
+static contextType = SomeContext;
+to have React and Babel know that you are looking for the nearest SomeContext for a value to pass into a component
+add that into the class definition for a component
+access it with this.context - that will then be populated with the data that is derived from contextType
+
+you can use component composition to pass down a component to be rendered multiple layers down
+this inversion of control can make code cleaner in many cases by reducing the amount of props you need to pass through your application
+but it moves complexity higher up in the tree where it may not make a lot of sense
+
+the pattern is sufficient for many cases when you need to decouple a child from its immediate parents
+render props can also be used in the case where the child component needs to communicate with the parent before rendering
+
+Context lets you broadcast data and changes to data to all components under a Provider component
+
+API basics
+contextType can only be added to a class
+MyComp.contextType = myContext;
+you can only subscribe to one context this way
+can also be written as static contextType = myContext from within the class definition for myComp
+
+alternatively for a function component, you can use MyContext.Consumer component to subscribe to a context within a function component
+
+<MyContext.Consumer>
+{value => render something based on context value}
+</MyContext.Consumer>
+
+as can be seen, this component requires a function as a child => render props
+
+value will be equal to the value prop of the closest MyContext.Provider
+
+IF THERE IS NO PROVIDER FOR THIS CONTEXT ABOVE, THE VALUE ARGUMENT WILL BE EQUAL TO THE DEFAULTVALUE THAT WAS PASSED INTO CREATECONTEXT
+
+setting displayName will determine what is shown in the virtual DOM in the devtools
+
+if you must put a function in the Provider value, make sure to have a fallback value for it in the defaultValues - if you have a toggler function for a context value, have an empty shell function be the default value in the createContext function
+
+Caveats
+if you pass in a new object into the Provider value prop
+value={{something: 'something'}}
+each Consumer subscribing to this Provider will re-render every time the Provider re-renders for whatever reason. this is because the value prop is always going to have a new value - context uses reference identity to determine when to re-render
+
+you can get around this by lifting the value into the parent's state
+

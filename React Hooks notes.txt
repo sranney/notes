@@ -1,0 +1,493 @@
+When learning something new, ask two questions: 
+1. why does this thing exist?
+2. What problems does this thing solve?
+
+you have to have a solid enough answer for these two questions in order to have a solid enough foundation to dive into specifics
+
+despite the popularity of React, hooks were created and React was re-imagined/re-designed
+
+history
+React wanted to have devs implement it closely in line with how javascript plainly is implemented
+when class fields were created in JavaScript, this allowed for devs to write less boilerplate - the constructor
+class fields allowed us to add class props and methods to a class without having to explicitly write out the constructor
+arrow functions could also be used for react classes instead of having to bind this to a method - the arrow function doesn't change context for the variable this
+
+there's still some profound issues with how React has to be written
+
+the whole idea of React is that well thought out components that can be composed together facilitate writing complex applications
+
+the existing problems don't have to do with the component model, but in how the component model is implemented
+
+1. Duplicate Logic
+how we have structured the logic for components has been coupled with component lifecycles
+- this means that related logic has to be duplicated throughout a component
+- to fix this issue a whole new paradigm must be put in place to handle side effects in react components
+
+2. Sharing non-visual logic
+because React couples UI to a component, sharing non-visual logic between components is difficult
+if you have logic that does the same thing in two different components, sharing that can be difficult
+HOCs were a solution for this - putting the shared logic into a component that wraps another, and passing the individual ui components down the chain
+that is what the react-redux connect function does - connect is a HOC
+Common component render props is a similar pattern
+-- Downsides to these patterns
+makes following the logic very difficult... how many devs at DDC actually understand exactly what the connect method does
+this solution of abstraction is difficult
+and if we have to abstract it even further by using multiple HOCs, it even furthers the problems
+wrappers/HOCs can create wrapper hell
+overall, React just has no good primitive for sharing non-visual logic
+
+
+we need something that is simple, composable, flexible and extendable
+- enter hooks
+
+"Sometimes, the elegant implementation is just a function. Not a method. Not a class. Not a framework. Just a function" John Carmack
+
+react hooks works with functional components - right there it solves the problems with react related to class structure
+
+but we still need a way to deal with state, lifecycles and sharing non-visual logic
+
+1. dealing with state - getting state in functional components
+- useState solves this
+
+2. lifecycles
+- hooks shift the paradigm
+- now think in terms of synchronization
+- - - lifecycles have always been used in relation to an end goal of synchronization
+- thinking in terms of synchronization instead of lifecycle events, it allows us to gather together related pieces of logic - no longer are we focused on performing a lifecycle, but on what should be updated and when
+- - - - useEffect allows us to perform side effects inside of functional components
+React.useEffect(()=>{document.title=`Hello,${username}`},[username])
+function determines the side effect to run, the variable in the dependency array determines when to run the side effect function / TO RESYNC THE COMPONENT
+
+SOLVES: 
+we've gotten rid of react.component, constructor, super(props), binding this, and we no longer have side effect logic sprinkled and duplicated throughout the component
+
+now we need to figure out sharing non-visual logic
+a problem because React couples UI to a component
+- lead to problematic patterns HOCs and Render Props 
+- the solution for this is creating custom hooks completely decoupled from any UI
+
+
+Hooks real value is in improved code reuse and composition
+
+---------------------------------------------------------------------------------------------------
+
+USESTATE HOOK
+most important part of react is for individual components to own and manage their own state
+advent of react hooks made it so that we no longer need to use classes for stateful components
+we can use function components and make them stateful with useState hook
+
+useState takes in a single argument, the initial value for the state
+returns an array with the state piece, and a way to update the state piece
+const [foo, setFoo] = useState('bar')
+
+marketing model for useState: 
+add state to functional components
+
+tyler mcginnis's model of thinking about useState: 
+preserve values between renders, and trigger a re-render of the component
+
+whenever setFoo is called, it changes the state foo, and the function for the component is going to re-run and re-render the component
+
+difference between class and this
+useState allows you to preserve values between renders - works similarly to closures - everytime the function re-runs, instead of garbage collecting local variables, the variable values persist, the reference to those state variables persist
+
+the whole point of react is that components are able to describe their ui based on current state
+
+public API for being able to preserve values between renders of a functional component is useState
+
+useState is the tool to presever values between function calls/renders and to trigger a re-render of the component
+adding state to function component is a side effect of the main purpose behind useState
+
+what's the difference between setState and useState
+1 - no more instance wide API for updating the state of the component - have to use a specific piece of state updater function such as setFoo
+2 - no more setting all of the state together in one big object as was done with classes
+each must be set by themselves
+useState has to be called multiple times to set all of the individual pieces of state
+3 - handling updates to state
+you have to now state everything as you want it to be preserved each invocation of the setter function for the piece of state
+---- if you want to update multiple pieces of state all at the same time, there is a hook called useReducer that is specifically built for that
+4 - handling updates via a function
+with setState you can pass a function as 
+this.state = {count: 0}
+...
+this.setState(count=>({count: count+1}));
+---
+we can do the same thing with the setFoo, or other setters generated from using useState
+setFoo(foo=>foo+1)
+notice the difference of not having to set an object for foo, just setting the new for foo
+the whole reason for this is that setFoo is asynchronous. we want to ensure that the updates take into consideration the correct values for foo at the time of execution
+for react to guarantee the right values, don't rely on the current value of the state piece
+
+5 - lazy state initialization
+function getCount () {
+console.log("something logged");
+return 999
+}
+function Counter () {
+const [count, setCount] = React.useState(getCount()};
+...
+in the code above, the calculated value from getCount is only used once, on the initial render.
+however, every time that the component re-renders, the function getCount is invoked
+
+a workaround for this is to pass in a function definition that will resolve to an initial state if executed
+by not calling the function invocation but passing in a function definition the invocation only happens when it is needed - on the initial render
+
+---------------------------------
+---------------------------------
+---------------------------------
+
+
+Execution Context, Scopes, and Closures
+execution context - 
+help the js engine in understanding the complexity in running and interpreting js
+at the highest level, even if no code is in context, javascript creates a global execution context
+this creates a window variable pointing to the global object and this points to that window object
+
+each execution context will have two phases - 
+1 - creation phase
+---- creates references for any variables defined and puts functions entirely into memory
+in the creation phase of the global execution context, 4 things happen
+a. create a global object
+b. create an object called this
+c. set up memory space for variables and functions
+- - - - hoisting - when variable declarations are given a default value of undefined during the creation phase of the execution context - nothing is actually moved around
+d. assign variable declarations a default value of undefined and place any functions directly in memory AKA HOISTING
+2 - execution phase
+phase where javascript starts executing code line by line 
+
+another execution context that is needed
+function execution context
+it is similar to the global execution context
+it is created whenever a function is invoked
+
+THE ONLY TIME THAT AN EXECUTION FUNCTION IS CREATED IS WHEN THE JS ENGINE STARTS INTERPRETING THE CODE (GLOBAL) AND THEN, AFTER THAT, WHENEVER A FUNCTION IS INVOKED. 
+
+the only difference between global execution context and the function execution context is that the function execution context does not create a global object - - - - SUPER IMPORTANT - every time a function runs, a 'this' object is created
+
+additionally, where window is created during the creation phase of the global execution context, arguments is created during the creation phase of the function execution context
+
+
+execution stack - whenever a function is invoked, a new execution context is created and added to the execution stack. whenever the execution context that was created from the invocation has finished the creation phase and the execution phase, that execution context gets popped off the execution stack - variables that were set up as part of the execution context are no longer available - they are out of scope
+javascript is single threaded - only one task can be executed at a time
+
+an additional note on function execution context, parameters passed into functions have their values set during the creation phase - they do not come in as undefined
+
+
+
+scope -  - - -
+https://developer.mozilla.org/en-US/docs/Glossary/Scope
+the current context of the execution
+
+when a new execution context is created and is the scope, it will first look to its own execution context for the variable - if found, it will use that, if not, it will go up one context at a time until it finds its execution context
+this is what is called scope chains
+https://blog.bitsrc.io/understanding-scope-and-scope-chain-in-javascript-f6637978cf53
+
+if the variable being accessed is not setup locally in a function, it does not get added to the execution context
+
+CLOSURES - - - - - - - - - 
+
+function makeAdder(x) {
+    return function inner (y) {
+        return x + y;
+    };
+}
+functions like the one above that return a function that utilizes parameters passed into the outer function create a closure context
+
+scope chain requires the value of the parameter x here when executing the returned inner function
+
+the inner function creates a closure over the outer function's execution context - a closure scope - inner function still retains access to the variables defined in the parent function's execution context 
+this remains even after the function execution context has completed
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures
+
+---------------------------------------------------------------------------------------------------------------------------------------
+
+useEffect
+
+key to writing bug-free software is to maximize the predictability of your program
+
+one way to do this is to minimize and encapsulate the side effects in your program
+
+in programming - 
+side effect = state change that can be observed outside of its local environment
+anything that interacts with the outside world/outside the function that is being executed
+
+0examples of side effects
+making an API request
+
+hook to handle side effects in react =>=>=> useEffect
+
+3 important features of useEffect
+1 - add an effect
+just calling useEffect and passing a function
+will be called AFTER every render
+the reason for this happening after renders is so that the side effect will not block rendering updates to the UI
+useEffect runs after React updates the DOM, and the browser repaints with DOM updates
+2 - skip re-invoking the effect
+using the dependency array will allow us to not have an effect run after every re-render
+-> called the dependency array because what you pass are all the variables that the effect depends on
+if any of the values change between renders, the effect will run after a render
+if none do, the effect will not run
+regardless of whether you pass any variables into the dependency array or you pass no variables, the effect will always run on at least the initial render
+
+3 - (optionally) clean up the effect
+return a function from inside the effect function - this will be the clean up function
+this clean up function will be ran right before removing the component from the DOM
+additionally, if re-rendering is needed and the effect will happen again, the cleanup from the previous render will run right before invoking the new render's effect
+again the rendering occurs first, then the cleanup function that was returned from the useEffect function, then ultimately the new effect's function
+React always prioritizes the UI, cleans up any previous effects and then runs new effects
+
+----
+----
+useEffect vs. Lifecycles
+they are two fundamentally different mental models, they are not the same thing
+
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+Rules of hooks
+However, there is one rule you have to follow when using Hooks and it has to do with where Hooks can be called.
+
+Only call Hooks from the top-level of a function component or a custom Hook
+you can’t call them anywhere that’s not on the top level like inside of a loop, if statement, or event handler
+
+The reason for this rule is because React relies on the call order of Hooks to keep track of internal state and references. If your Hooks aren’t called consistently in the same order across renders, React can’t do that.
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+Creating Custom Hooks
+why this over HOCs or render props
+HOCs and render props are large abstraction and they force you to adjust your tree structure for the sake of re-usability
+they both create wrapper hell
+essentially they are a bandaid over the bigger problem of React couples UI to the component and has lacked a good primitive for sharing non-visual logic 
+
+custom hooks decouples non-visual logic from UI
+all you have to do to create a custom hook function is start the function name with the word 'use'
+custom hooks must only be called from the top level of a function
+custom hooks can be created for anything
+custom hooks do not cause wrapper hell
+custom hooks doesn't even cause abstraction
+all it does is allow you to move non-visual logic away from UI
+
+sharing non-visual logic via a custom hook is the thing that makes hooks so special
+
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+Higher order component (really a function)
+characterized by: 
+1 - takes a component as an argument
+2 - returns a new component
+3 - component it returns can render the original component that was passed in
+
+a component transforms props into UI, a higher-order component transforms a component into another component
+
+the more general you can make the HOC code, the better
+if you need to pass in a prop to be passed down to the child component, you can set that as a param needed in the HOC function params
+then set up a props object and use the prop name param to set the key
+just using some basic patterns of React
+function withHover(Component, propName = 'hovering') {
+...
+    render() {
+      const props = {
+        [propName]: this.state.hovering
+      }
+
+      return (
+        <div onMouseOver={this.mouseOver} onMouseOut={this.mouseOut}>
+          <Component {...props} />
+        </div>
+      );
+    }
+}
+
+if any other props are expected, change to
+const props = {
+...this.props, 
+[propName]: this.state.hovering
+}
+
+inversion of control happens with HOC
+inversion of control = we aren't controlling the component, the HOC is
+we are relying on correct data, functionality, etc. happening from the HOC
+an instance of this is naming collision where data from the HOC has the same name as a prop passed from somewhere else
+
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+render props involve
+passing functions as props
+
+class Hover extends React.Component {
+...
+  render() {
+    return (
+      <div onMouseOver={this.mouseOver} onMouseOut={this.mouseOut}>
+        {this.props.render(this.state.hovering)}
+...
+}
+function Info (props) {
+  return (
+    <>
+      {props.hovering === true
+        ? <Tooltip id={this.props.id} />
+        : null}
+function App () {
+  return (
+    <>
+      <Hover render={(hovering) =>
+        <Info hovering={hovering}>
+      } />
+...
+
+another way to write App is 
+function App () {
+  return (
+    <>
+      <Hover>
+        {(hovering) => <Info hovering={hovering}>}
+      </Hover>
+...
+
+class Hover extends React.Component {
+...
+  render() {
+    return (
+      <div onMouseOver={this.mouseOver} onMouseOut={this.mouseOut}>
+        {this.props.children(this.state.hovering)}
+...
+
+If our Game component is already receiving match, location, or history as a prop, we’re going to have a naming collision and it’s going to be a hard bug to track down.
+
+Does this same pitfall occur with Render Props? Nope. Instead of handing over the component, we hand over a function. Then, when that function is invoked, it’ll be passed the data we need — no inversion of control and no naming collisions since we can decide how the component is rendered.
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+reduce is a pure function, it relies on nothing outside its own scope
+
+
+
+
+useReducer hook
+
+adds state to function components using the reducer pattern
+takes in a reducer function - a function set up to manage state
+and takes in an initial value for its state
+and it returns the state after every invocation of the reducer function
+as well as returning a way to invoke the reducer function
+
+const [state, dispatch] = useReducer(reducer, initialState);
+
+dispatch is what invokes the reducer
+whatever is passed into the dispatch function is new state, which is used in the reducer function
+reducer function must have two parameters, the previous state, and some data which will be used to form the new state
+
+importantly, dispatch can send whatever is wanted - it can be a single numeric value, or it can be an object similar to that which a redux action creator would create, having an action type and payload
+ - - - this allows for more complexity in our reducer function - allows for a single reducer function to handle several pieces of state
+
+what we get with this is a completely decoupled non-visual logic from the ui
+with dispatching action types or an object with action types in it, we can now map how we want state to update to a single function
+
+dispatch for these separate pieces of state can pass a bunch of different things, as long as it is an object with a type prop as a string 
+
+because the reducer is passed the previous state as its first argument, it is simple to update one piece of state based on another piece of state 
+
+WHENEVER UPDATING ONE PIECE OF STATE DEPENDS ON ANOTHER PIECE OF STATE, YOU MAY WANT TO USE USEREDUCER OVER USESTATE
+
+useReducer vs. useState
+both add state to function component
+
+when to use either 
+useReducer facilitates more declarative state updates -> invoking dispatch with a type prop
+instead of writing how we want to accomplish the task, write what you want to accomplish
+
+as can be seen with api side effects in useEffect, using useReducer minimizes the dependency array 
+it allows you to decouple how the state is updated from the action that triggered the update
+you can exclude values from the dependency array because dispatch only dispatches the type of the action that occurred - the update happens elsewhere
+big win over useState and its setter functions, because you don't have to include that additional piece of data in the dependency array, resetting the id in the clean up function
+
+because of all this, useReducer provides more flexibility
+
+if different pieces of state update independently from one another, useState should work fine
+if state tends to be updated together or if updating one piece of state is based on another piece of state, go with useReducer
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+useRef only persists values across renders, nothing more
+
+const id = useRef();
+id.current is the persisted value
+
+Tyler McGinnis makes an important demonstration for useRef
+he creates it using a function that returns the first element in the returned array for useState
+by doing this he demonstrates that useRef is just a part of useState that only returns a persisted value, and not the setter for the state piece
+because there is no setter for the state, useRef does not trigger a re-rendering of the component
+
+anything that you want to persist across renders you stick on the current property of the ref
+most popular use case for useRef is getting access to DOM nodes
+if you pass the ref from useRef to any ref prop on an element
+such as 
+<input placeholder="name" type="text" ref={nameRef}/>
+React will set the current property of the useRef ref to the corresponding DOM Node 
+this allows us to get the input values or set focus
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+React Context
+Context provides a way to pass data through the component tree without having to pass props down manually at every level.
+you create a new context for each unique piece of data that needs to be available throughout your component tree
+you do this with the createContext function
+const newContext = React.createContext();
+this creates for us a Provider component and a Consumer component
+Provider - allows us to declare the data that we want available throughout our component tree
+Consumer - allows any component in the component tree that needs that data to be able to subscribe to it
+all consumers from a specific provider must be under the provider in the component tree
+Provider is just a wrapper that provides the data
+Consumer is a wrapper for feeding data to other components based on the data that is set in its provider
+Consumer uses a render prop for providing data
+<newContext.Consumer>
+	{data => {
+		return (
+			<h1>
+				The value prop passed to Provider was {data}
+			</h1>
+		)
+	}}
+</newContext.Consumer>
+
+Consumer is subscribing to the data that the Provider publishes
+when data changes, Consumer re-renders
+
+passing in a new object to Provider such as
+<Provider value={{stuff}}>...
+is not a good idea
+that's a new object, and so references to that object will always be different and will cause a re-render for every consumer
+pass in a reference to something that is consistent - this.state for example
+
+
+defaultValue
+whenever you render a Consumer component, 
+it's going to get its value from the value prop of the nearest Provider component of the same context object
+=>=>=> what if there is no Provider component in the component tree??
+that Consumer would get its value from the value that was passed in the createContext function for that context object
+
+wrapper hell can happen if you have multiple consumers you want to use
+
+however, React hooks solves the problem again
+-------------------------
+useContext
+-------------------------
+takes in a context object as its argument
+returns whatever was passed as the value prop to the nearest instance of the provider component of that same context object
+
+provides a more composable API
+
+no more wrapper hell where the flow of data can be confusing with multiple context objects, all we have to do is use the useContext hook api multiple times
+
+const {auth} = React.useContext(AuthedContext);
+const {locale, toggleLocale} = React.useContext(LocaleContext);
+
+so much easier to follow
+
+when should Context not be used??
+there are circumstances when passing props is okay - that is how React was designed
+sometimes state is okay to use

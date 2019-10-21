@@ -1,0 +1,505 @@
+https://reactjs.org/docs/hooks-faq.html
+
+What can I do with Hooks that I couldn't with classes?
+Hooks offer a powerful and expressive new way to reuse functionality between components.
+ 
+https://reactjs.org/docs/hooks-custom.html
+custom hooks let you extract component logic into reusable functions
+
+traditionally sharing stateful logic between components was done with render props or higher-order components
+
+a custom hook is a function whose name starts with "use" (required or stuff doesn't work exactly right) and that may call other hooks
+
+"Custom Hooks are a convention that naturally follows from the design of Hooks, rather than a React feature."
+
+Custom hooks do not make it so that components share state, just stateful logic - every time you use a custom hook, all state and effects inside of it are fully isolated
+
+from React's point of view, components using custom hooks are just calling the contents of that hook function
+
+since hooks are just functions, we can pass information between them
+const [recipientID, setRecipientID] = useState(1);
+const isRecipientOnline = useFriendStatus(recipientID);
+
+Because useState will keep recipientID as the up-to-date value for every render, passing in recipientID to useFriendStatus will ensure that isRecipientOnline is always up to date
+
+on every render, clean up happens after the render is complete - because we have cleanup function to unsubscribe from current ids, the data we get back from every render will be up to date
+
+useState may not make centralizing the update logic any easier, so you might prefer to write it as a redux reducer. we could also just manage local state of our component with a custom hook useReducer
+
+function useReducer(reducer, initialState) {
+  const [state, setState] = useState(initialState);
+
+  function dispatch(action) {
+    const nextState = reducer(state, action);
+    setState(nextState);
+  }
+
+  return [state, dispatch];
+}
+
+Hooks are a more direct way to use the React features you already know — such as state, lifecycle, context, and refs. They don’t fundamentally change how React works, and your knowledge of components, props, and top-down data flow is just as relevant.
+
+You can’t use Hooks inside of a class component, but you can definitely mix classes and function components with Hooks in a single tree. 
+
+Do Hooks replace render props and higher-order components?
+in most cases, Hooks will be sufficient and can help reduce nesting in your tree.
+
+What do Hooks mean for popular APIs like Redux connect() and React Router?
+You can continue to use the exact same APIs as you always have; they’ll continue to work.
+
+React Redux since v7.1.0 supports Hooks API and exposes hooks like useDispatch or useSelector.
+
+React Router supports hooks since v5.1.
+
+How to test components that use Hooks?
+testing shouldn't be different from how you normally test components
+
+What exactly do the lint rules enforce?
+We provide an ESLint plugin that enforces rules of hooks to avoid bugs
+	- any function starting with use and a capital letter right after it is a hook
+
+How do lifecycle methods correspond to Hooks?
+constructor - functions don't need a constructor - initialize state using useState - if computing the initial state is expensive, you can pass a function to useState
+
+componentDidMount, componentDidUpdate and componentWillUnmount all can be recreated by useEffect - you can conditionally run the effect method by using the dependency array, but if you do that, you must include all values from the component scope (such as props and state) that change over time and that are used by the effect. Otherwise, your code will reference stale values from previous renders.
+
+We recommend using the exhaustive-deps rule as part of our eslint-plugin-react-hooks package.
+
+instance variables - in oop with classes, an instance variable is a variable defined in a class for which each instantiated object of the class has a separate copy or instance - similar to a class variable
+is there something like instance variables in hooks?
+=>=>=>=>useRef
+the ref object is a generic container whose current property isi mutable and can hold any value, similar to an instance property on a class
+useful if we want to maintain things over multiple renders
+
+Should I use one or many state variables?
+doing one state variable is actually more clunky code 
+it is recommended that state is split into multiple state variables based on which values tend to change together
+no need to merge state updates and create new state each time
+additionally, coupling all state together meeans that the logic of updating all parts of that state must stay together - separating state allows you to more easily extract related logic into custom hook
+shown here is that you should not have a single useEffect for everything
+
+Can I run an effect only on updates?
+create a flag for this and put all logic in custom hook
+
+How to get previous props or state?
+use the useRef hook!
+
+function Counter() {   
+	const [count, setCount] = useState(0); 
+ 	const prevCountRef = useRef();   	useEffect(() => {    		prevCountRef.current = count;  	});
+	const prevCount = prevCountRef.current;
+ 
+  	return <h1>Now: {count}, before: 		{prevCount}</h1>; 
+}
+you can extract that into custom hook
+
+why am I seeing stale props or state inside my function?
+any function inside a component, including event handlers and effects, "sees" the props and state from the render it was created in
+function Example() {
+	const [count, setCount] = useState(0);
+	function handleAlertClick() {
+		setTimeout(() => {
+			alert("You clicked on: 			" + count); //// this 			guy!
+		},3000);
+	}
+	return (
+		<div>
+		<p> You clicked {count} times </p>
+		<button onClick={() => setCount(count + 1)}>
+			Click me
+		</button>
+		<button onClick={handleAlertClick}>
+			Show alert
+		</button>
+		</div>
+		);
+}
+if you first click show alert, and then incrementing counter, the alert will show the count variable at the time you clicked the "show alert" button. if you intentionally want to read the latest state from some asynchronous callback, you could keep it in a ref => use the useRef hook
+
+Finally, another possible reason you’re seeing stale props or state is if you use the “dependency array” optimization but didn’t correctly specify all the dependencies. For example, if an effect specifies [] as the second argument but reads someProp inside, it will keep “seeing” the initial value of someProp. The solution is to either remove the dependency array, or to fix it. 
+
+How do I implement getDerivedStateFromProps?
+
+====================================================================================================
+
+https://medium.com/@dan_abramov/making-sense-of-react-hooks-fdbde8803889
+
+React is about reusability of components 
+we often can't break complex components down any further because the logic is stateful and can't be extracted to a function or another component
+
+the result of this problem is that we get
+huge components that are hard to refactor and test
+duplicated logic between different components and lifecycle methods
+Complex patterns like render props and hocs
+
+hooks are our best shot at solving all of these problems - lets us organize the logic into reusable isolated units
+
+https://twitter.com/prchdk/status/1056960391543062528
+
+
+Hooks apply the React philosophy (explicit data flow and composition) inside a component, rather than just between the components
+
+NO UNNECESSARY NESTING INTO YOUR COMPONENT TREE
+
+bloating could be the prevented if you move completely over to hooks
+just functions instead of functions, classes, hocs and render props
+
+advent of hooks doesn't mean that your classes are broken. you can define components using hooks or classes in the same project
+
+Components are powerful, but have to render UI - because they have to render UI, it makes them inconvenient for sharing non-visual logic => leads to render props and hocs
+
+functions seem to be a perfect mechanism for code reuse, least amount of effort to move logic between functions
+problem with functional components -> no local state
+no simple solution to build that
+
+hooks let you use react features from a function
+building blocks of react are provided in hooks - state, lifecycle, context
+you can combine these built-in hooks into custom hooks
+
+custom hooks are not a react feature - they naturally follow from the way hooks are designed
+
+hooks are simple to read - the goal of Hooks: to make components truly declarative even if they contain state and side effects
+
+Hooks are fully encapsulated - each time you call a hook, it gets isolated local state within the currently executing component - thus its just a blueprint of stateful logic
+
+Unlike render props or higher-order components, Hooks don’t create a “false hierarchy” in your render tree
+
+Hooks represent our vision for the future of React.
+
+React keeps the state for hooks in the same place it keeps state for classes
+React has an internal update queue which is the source of truth for any state, no matter how you define your components. as much magic as array.push
+
+====================================================================================================================================
+
+https://github.com/reactjs/rfcs/pull/68#issuecomment-439314884
+How would you customize those object properties? Array is the cleanest way it works with custom naming.
+There is an internal list of “memory cells” associated with each component. They’re just JavaScript objects where we can put some data. When you call a Hook like useState(), it reads the current cell (or initializes it during the first render), and then moves the pointer to the next one. This is how multiple useState() calls each get independent local state.
+
+In React, the only hooks I can think of at the moment are the componentDidMount and componentWillUnmount functions, since they're part of a lifecycle and call out to some other function (as part of being overridden in a Component class)
+
+From the React Hooks documentation it looks like these are managers:
+
+useState manages and coordinates state
+useEffect manages and supervises side-effects
+useContext manages context
+
+A little , nown fact is that React already uses dependency injection to insert the "updater" into the Component base class. It's the third argument to the constructor. That Component doesn't actually do anything. This is what lets React have multiple different types of renderer implementations at different versions in the same environment like React ART or React Test Renderer
+The Hooks implementations are not actually implemented in the react package. It just calls the current "dispatcher". As I explained above, that can be temporarily overridden to whatever implementation you want at any given point. That's what React renderers does to have multiple rendererers all share the same API. E.g. you can have a hooks test dispatcher just for unit testing hooks. Currently it's behind a scary looking name but we can easily change that name, it's not a flaw of the design.
+
+To be clear, the reliance of order of execution is not really want we're talking about. It doesn't matter if you put useState or useEffect first or anything like that.
+
+Hooks doesn't care about which order you put them, it cares that they have persistent order. Same one every time. This is very different from implied dependency between calls. It would be better not to have to rely on persistent order - all things being equal. However, there are tradeoffs. E.g. syntax noise or other things being confusing.
+
+This is inconvenient since you need to pass everything as props that otherwise would be implied by the closure scope. This is a larger issue in React that is not limited to Hooks. It is always best-practice to do this. It helps optimizations such as keeping the render cost down of changing a single item in a list of items. It ensures that each child can bail out independently. With Suspense it means that each child can fetch and render its dependencies in parallell instead of in sequence. Error boundaries has similar requirements. So regardless of solution to the Hooks issue alone, it'll still be best practice to split out loop bodies into separate components - which also solves the Hooks issue for loops.
+
+Once you do allow for conditions, some things start getting weird. E.g. you might see useState in a condition, but what does that mean? Does it mean that it is just scoped to be used within that block or does it also mean that its life time changes with? What does it mean to write if (c) useEffect(...)? Does that mean that the effect fires when the condition turns true or does it mean that it fires every time while the effect is true? Does it unmount when it's not or does it continue to follow the life-time of the component?
+For proposals like, declaring hooks outside of the body, what does it mean to call a hook multiple times? Just because you technically can, doesn't make it less confusing.
+
+useReducer
+
+In terms of bloat, it doesn't add any code that isn't already needed in React anyway. In terms of concept, I think it's a valuable concept to learn since the same pattern keeps popping up all over the place in various forms. Better to have one central API to manage it.
+
+So I see useReducer as the central API more so than useState. useState is still nice since it's very concise for simple use cases and easy to explain, but people should probably look into useReducer or similar patterns early on.
+
+context Provider
+
+It has been mentioned that ideally Context Provider shouldn't be exposed from a module when you only want to expose a way to Consume a Context. Seemingly useContext encourages you to expose the Context object. I think the way to do this is by exposing a custom hook for consumption. useMyContext = () => useContext(Private) This is better in general since you have the option to add custom logic, change it to be global or add deprecation warnings afterwards.
+The other quirk about Context Provider is that there is no way to provide a new context using a hook. That still requires a wrapper component. A similar issue is that you can't attach event listeners to the current component via Hooks, or something like findDOMNode.
+
+The reason for this is that Hooks, by design, are either self-contained or only observe values. This means that using a custom Hook can't affect anything in your component that you don't explicitly pass to that Hook. It never drills through any abstraction levels. It also means that order dependence doesn't matter. The only exception to this is if you're dealing with global mutable state like traversing the DOM. That's an escape hatch but not something that you're expected to abuse in the idiomatic React world. This also means that using Hooks are not order-dependent. In that it doesn't matter if call useA(); useB(); or useB(); useA();. Not unless you explicitly create a dependency by sharing data. let a = useA(); useB(a);
+
+useEffect
+
+The nice thing about that second argument property is that you can have a linter, code refactoring tool in IDE, or compiler automatically add it based on your callback.
+
+Using async functions as effects is not allowed atm. Meaning you have to jump through some hoops to do async clean up. Asynchronous effects are very difficult to get right since anything could happen between those steps. It also wouldn't be possible to clean up before you initialize the new effect. 
+
+The quirkiest thing about useEffect is the use of closures. This causes confusing semantics with regard to what value is actually going to be read at any given time. Because the closed over values are not actually reactive. They capture the state as it was. This is actually a nice property though. Due to batching and concurrent mode, there are many scenarios where things gets interleaved in unexpected ways. Captured values does cause bugs upfront due to counter intuitive closures, but once fixed they tend to have fewer race condition issues.
+
+I'd say that React's memory usage is pretty unpredictable in general since we memoize essentially everything in the tree.
+
+Motivation
+
+Why do all of these particular hooks have to be in core? Most of them don't really add significant cost in terms of bytes since all the mechanisms have to exist regardless. It's more about the conceptual overhead. Many of them are primitives that can't be implemented in user space or provides significant value by describing intent.
+
+For example, useMemo could be made in user space today, but we'd like to be able to in the future keep state while throwing away memoized values. E.g. during a low memory situation or windowing components.
+
+useCallback is just a simple wrapper around useMemo, but we have ideas for how we could optimize that further in the future, either statically or using runtime techniques.
+
+One argument that I keep hearing is that the motivation isn't strong enough because "classes are fine". Supposedly, it's the users trying to learn them that are broken. 
+
+The main motivation is that patterns like closures naturally creates copies of values which makes writing concurrent code a lot easier because you can store n number of states at any given point instead of just one in the case of a mutable class. 
+
+Classes may seem like the ideal thing to hold state since that's what they're designed for. However, React is more written like a declarative function that keeps getting executed over and over to simulate it being reactive. Those two things have an impedence mismatch and that keeps leaking when we think of these as classes.
+
+In classes, each method has its own scope. It causes issues like us having to reinvent default props so that we can create a single shared resolved object across those. You also encourage sharing data between those methods using mutable fields on the class since the only shared thing is this. This is also problematic for concurrency.
+
+https://codepen.io/timkendrick/full/wObdyb
+====================================================================================================================================
+
+https://medium.com/@ryardley/react-hooks-not-magic-just-arrays-cd4f1857236e
+
+rules of hooks
+don't call hooks inside loops, conditions or nested functions
+only call hooks from react functions
+
+HYPOTHETICAL (JUST TO GET CLEARER MENTAL MODEL): STATE MANAGEMENT IN HOOKS IS AL ABOUT ARRAYS
+
+mental model for queue system in react
+think of every time that useState is called as pushing onto two separate arrays (one for state getters and one for state setters) in the context that would be global to all components that are using them
+
+whenever the state is needed to be accessible, the function just reads from the getter array the current value of the piece of state
+
+when using the setter function, the setter has a reference to its cursor position so by triggering the call to any setter, it will change the state value at that position in the state array
+
+putting hooks in conditions messes up the queue system potentially by setting the cursor which tracks the order of the updates  off from what the order actually is
+
+The React team are stipulating the usage rules because not following them will lead to inconsistent data
+
+====================================================================================================================================
+
+https://www.robinwieruch.de/react-hooks-fetch-data
+
+fetch data in React with Hooks by using the state and effect hooks.
+
+===================================================================================================================================================
+
+https://wattenberger.com/blog/react-hooks
+
+differences between react classes and react hooks
+
+With class components, we tie updates to specific lifecycle events.
+In a function component, we instead use the useEffect hook to run code during the major lifecycle events.
+
+With lifecycle events, we need to deal with all changes in one spot. Our thinking looks something like: When our component loads, and when props change (specifically dateRange), update data
+
+In a function component, we need to think about what values stay in-sync. Each update flows more like the statement: Keep data in sync with dateRange
+
+when we use useEffect, we have to put data in a state generated by useState
+compare this to
+when we use useMemo, we can set the value of the returned function directly to a function that we only run when input is updated
+  const data = useMemo(() => (
+    getDataWithinRange(dateRange)
+  ), [dateRange])
+this function is only ran when the dependency array has updated
+useMemo is useful when handling large datasets
+
+class component style code with lifecycles in charge of syncronization and how state should update influences how we write code - a lot of time, we end up writing more imperative code explaining how to keep variable in sync with props and state
+mental model: we need to calculate the dimensions of a chart when the margins change
+
+in our function components with hooks, code is a lot more declarative, and we can focus on what to keep in sync
+colocation of dependencies and state is made easier as well with hooks
+mental model: we need to keep dimensions in sync with margins
+
+with hooks dependency arrays, it doesn't matter what gets passed into the dependency array - a value is a value
+
+hooks help keep clutter out of components, and ultimately keep our components much shorter and focused
+
+we keep each concern separate from other concerns with hooks - this is possible because we can group by concern instead of lifecycle events
+
+writing custom hooks makes it so that you can have a library of custom util hooks - really liking this modular design!!!
+
+https://usehooks.com/
+
+===================================================================================================================================================
+
+https://www.robinwieruch.de/react-hooks
+
+React Hooks were invented by the React team to introduce state management and side-effects in function components. It's their way of making it more effortless to use only React function components without the need to refactor a React function component to a React class component for using lifecycle methods, in order to use have side-effects, or local state. React Hooks enable us to write React applications with only function components.
+
+lifecycle methods have been essential for introducing side-effects, such as listeners or data fetching, in React class components.
+
+previously, writing components as function components came with a drawback once it was known that either state or lifecycles (side effects) were needed in a component - the component needed to be re-written as a class component
+
+no need for this with hooks!
+
+Now, if you would introduce more than one of these side-effects in a React class component's lifecycle methods, all side-effects would be grouped by lifecycle method but not by side-effect. That's what React Hooks are going to change by encapsulating a side-effect in one hook whereas every hook has its own side-effect with a setup and clean up phase.
+
+Wrapper Hell - render props, hocs, context provider and context consumer are all abstraction/wrapper hell
+It becomes an unreadable component tree, because all the abstracted logic is covered up in other React components. The actual visible components are hard to track down in the browser's DOM.
+
+all of that goes away and you get a flat component with side effects in it with hooks - side effects and other logic is just added as hook functions into your component function, no additional layers
+
+https://github.com/acdlite/recompose/commit/7867de653abbb57a49934e52622a60b433bda918
+
+OOP introduced into React through class compoents makes learning React a bit confusing for React beginners who are not coming from an OOP background. After all, they belong to the language. However, one of the hypotheses of introducing the Hooks API is a smoother learning curve for React beginners when writing their React components without JavaScript classes in the first place.
+
+Criticism: "It’s magic": React is known to be down to earth with JavaScript. Writing React applications makes you a better JavaScript developer - that's one of the best things about React when someone asks me: "Why should I learn React?". Whether there comes another library in the future or not, everyone is prepared by honing their JavaScript skills and general programming skills when using React. "Perhaps you’re wondering where React keeps the state for Hooks. The answer is it’s kept in the exact same place where React keeps state for classes. React has an internal update queue which is the source of truth for any state, no matter how you define your components.".
+
+ROBIN WIERUCH - REACT HOOKS
+USESTATE EXAMPLE COULD BE UPDATED TO HAVE THE FUNCTION THAT REMOVES ITEMS FROM THE LIST BE A FUNCTION INSTEAD OF A STRAIGHT LIST.FILTER
+YOU COULD DO LIST => LIST.FILTER(...) - 
+WHENEVER YOU NEED TO UPDATE A FUNCTION BASED ON THE PREVIOUS VALUE OF A PIECE OF STATE, YOU SHOULD USE THAT PREVIOUS STATE - PASSING A FUNCTION TO SETLIST WILL DO THAT
+
+The useState hook gives you everything you need to manage state in a function component: initial state, the latest state, and a state update function. Everything else is JavaScript again. Furthermore, you don't need to bother about the state object with its shallow merge as before in a class component. Instead, you encapsulate one domain (e.g. list) with useState, but if you would need another state (e.g. counter), then just encapsulate this domain with another useState. 
+
+useEffect comes with the ability to cleanup side effect too, via the returned function within the useEffect hook - it will run when unmounting the component and immediately after every re-render - it happens before the next effect is ran, if it is a re-render, so that the last render's effect is cleared before the current render's effect is ran
+
+dependency array - only when one of the variables in the array changes, the effect will run during the update cycle; if array is empty, the effect will only run on mount and unmount because no variable to check 
+
+when relying on the current value of a piece of state to update the state to the next value, if you don't pass in a function to a setter function, then you are going to be relying on stale state potentially - this happens when you don't have that state in your dependency array and require a different piece of state to update in order to get the current state -> -> like below, isOn is required to change to get the latest state for timer - this causes stale state
+  useEffect(() => {
+    let interval;
+    if (isOn) {
+      interval = setInterval(
+        () => setTimer(timer + 1),
+        1000,
+      );
+///////BETTER
+      interval = setInterval(
+        () => setTimer(timer=>timer + 1),
+        1000,
+      );
+    }
+    return () => clearInterval(interval);
+  }, [isOn]);
+
+in this case, the best course of action is to pass setTimer a function so that it can, itself access the current value for the timer state
+
+custom hooks allows for functionality to be reused somewhere else
+Extracting the custom hook as function was not the only thing. You also have to return the isOffline state from the custom hook in order to use it in your application to show a message to users who are offline. 
+React Hooks being reusable is the best thing about them, because there is the potential to grow an ecosystem of custom React Hooks that can be installed from npm for any React application.
+
+https://www.robinwieruch.de/react-usereducer-hook/
+https://www.robinwieruch.de/react-hooks-migration
+https://www.robinwieruch.de/react-usereducer-vs-usestate/
+https://www.robinwieruch.de/react-state-usereducer-usestate-usecontext
+
+=======================================================================================================================================
+
+https://www.robinwieruch.de/react-hooks-fetch-data
+
+checkout Suspense
+
+There is one last catch. In the code, we are using async/await to fetch data from a third-party API. According to the documentation every function annotated with async returns an implicit promise: "The async function declaration defines an asynchronous function, which returns an AsyncFunction object. An asynchronous function is a function which operates asynchronously via the event loop, using an implicit Promise to return its result. ". However, an effect hook should return nothing or a clean up function.
+
+Warning: useEffect function must return a cleanup function or nothing. Promises and useEffect(async () => ...) are not supported, but you can call an async function inside an effect.
+That's why using async directly in the useEffect function isn't allowed.
+
+Author suggests this as appropriate fetching:
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const result = await axios(
+        'https://hn.algolia.com/api/v1/search?query=redux',
+      );
+      setData(result.data);
+    };
+    fetchData();
+  }, []);
+
+
+you can create custom hooks with this stuff of course
+but if you have a useEffect tied to a piece of state created by useState by passing that state into the dependency array, and you pass its setter back as a returned value from the custom hook, then that setter is the equivalent to triggering a fetch... the code snippet below demonstrates such a situation
+
+import React, { Fragment, useState, useEffect } from 'react';
+import axios from 'axios';
+const useDataApi = (initialUrl, initialData) => {
+  const [data, setData] = useState(initialData);
+  const [url, setUrl] = useState(initialUrl);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsError(false);
+      setIsLoading(true);
+      try {
+        const result = await axios(url);
+        setData(result.data);
+      } catch (error) {
+        setIsError(true);
+      }
+      setIsLoading(false);
+    };
+    fetchData();
+  }, [url]);
+  return [{ data, isLoading, isError }, setUrl];
+};
+function App() {
+  const [query, setQuery] = useState('redux');
+  const [{ data, isLoading, isError }, doFetch] = useDataApi(
+    'https://hn.algolia.com/api/v1/search?query=redux',
+    { hits: [] },
+  );
+  return (
+    <Fragment>
+      <form
+        onSubmit={event => {
+          doFetch(
+            `http://hn.algolia.com/api/v1/search?query=${query}`,
+          );
+          event.preventDefault();
+        }}
+      >
+        <input
+          type="text"
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+        />
+        <button type="submit">Search</button>
+      </form>
+      {isError && <div>Something went wrong ...</div>}
+      {isLoading ? (
+        <div>Loading ...</div>
+      ) : (
+        <ul>
+          {data.hits.map(item => (
+            <li key={item.objectID}>
+              <a href={item.url}>{item.title}</a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Fragment>
+  );
+}
+
+notice also here that you can pass data to your custom hook that will then be used as data to pass to your useState calls in the custom hook
+
+if state managed by their own state hook belong together because they care about the same cause/are updated around the same time as each other, it is a good idea to use useReducer instead
+useReducer returns state object and a function to alter that state object
+
+dispatch does NOT have a mandatory type property - you can shape dispatch however you want it to be shaped - it helps to use type so that your reducer function can act a bit like a redux reducer - that type of reducer is organized
+By providing action types and optional payloads, you will always end up with a predicatbale state change. In addition, you will never run into invalid states.
+
+the Reducer Hook makes sure that this portion of the state management is encapsulated with its own logic. 
+
+=============================================================================================================================================
+https://www.robinwieruch.de/react-usereducer-hook
+the useReducer hook hits the sweet spot for middle sized applications that don't need Redux for React yet.
+
+=============================================================================================================================================
+https://overreacted.io/how-does-setstate-know-what-to-do/
+how does useState know what to do?
+assumption is that it's more magical than a base React.Component class with this.setState()
+the base class setState() implementation has been an illusion all along - it doesn't do anything except forwarding the call to the current renderer. And useState Hook does exactly the same thing
+instead of an updater field, Hooks use a dispatcher object. When you call React.useState, React.useEffect, or another built-in Hook, these calls are forwarded to the current dispatcher.
+
+This is why a renderer such as react-dom needs to access the same react package that you call Hooks from. Otherwise, your component won't see the dispatcher. It may not work when you have multiple copies of react in the same component tree.
+
+This also means Hooks aren't inherently tied to React. If in the future more libraries want to reuse the same primitive Hooks, in theory the dispatcher could move to a separate package and be exposed as a first-class API with a less scary name
+
+Both the updater field and the _currentDispatcher objects are forms of a generic programming priciniple called dependency injection. In both cases, teh renderers inject implementations of features like setState into the React package to keep your components more declarative
+
+=============================================================================================================================================
+
+https://medium.com/@alexandroskatechis/reacts-hooks-are-mixins-done-right-b2e981f22bf8
+
+Suppose you have a task to implement a form in an application
+	1. We will have 3 fields, name, date of birth, and yearly income
+	2. Each of these fields may have separate validation criteria, eg. name requires a first and last name, date of birth must be in YYYY-MM-DD format, and the income must be a string of digits without any punctuation
+	3. Validation should run as the user types so they receive instant feedback...
+	4. ...except before the first blur, so that they don't get an error message when they enter the first character of their name, or the first digit of their date of birth
+	5. We would also like to be able to show different messages based on the validation failure
+	6. on submit of the form, we'd like to submit the entire form object to some API service to save it
+
+implements the form component as a class component first
+points out the following as problems with the code:
+1. lots of code, makes it difficult to debug and maintain
+2. Much of the code is repeated for each field, with small variations to update the right state values
+3. this pattern of a field is not reusable. If I want to create another form, I have to remember what pieces of this code are necessary to implement a single field and copy them over
+
+why does the code become bloated and difficult to re-use?
+repeated code because we're using the instance of the class to store all of the state, implement methods necessary for the functionality of each field
+at least some of our pain points with this approach could be addressed by using a set of hocs that implement logic and state of each field
+

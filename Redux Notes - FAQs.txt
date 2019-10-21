@@ -1,0 +1,694 @@
+Redux FAQs
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+GENERAL QUESTIONS
+
+1. When to use Redux?
+use Redux when you have reasonable amounts of data changing over time, you need a single source of truth and you find that approaches like keeping everything in a top-level React component's state are no longer sufficient
+
+Redux tradeoffs
+it is intended to help answer when and where did state change and come from. It is NOT designed to be the shortest or fastest way to write code
+it is intended to provide predictable behavior
+
+there's a lot of boilerplate which is intended to make the system predictable: 
+1 - store application's state as plain data
+2 - describe changes as plain objects
+3 - handle those changes with pure functions
+
+if Redux was focused on being the most performant or most concise, not making code predictable, then it wouldn't suggest reducers and action creators, it would just change the state
+
+https://medium.com/@dan_abramov/you-might-not-need-redux-be46360cf367
+local state is fine
+the tradeoff that Redux offers is to add indirection to decouple "what happened" from "how things change"
+is it always a good thing to do? No. It's a tradeoff.
+Should you do this to your stateful components? Probably not. That is, not unless you have a plan to benefit from this additional indirection. Having a plan is, in the parlance of our times, the ??.
+
+tutorial:
+https://egghead.io/lessons/javascript-redux-persisting-the-state-to-the-local-storage?course=building-react-applications-with-idiomatic-redux
+
+using redux ideas (changing state based on previous state) are part of react already 
+this.setState(prevState=>({value: prevState.value+1}))
+
+
+https://medium.com/swlh/the-case-for-flux-379b7d1982c6
+Flux can work for any kind of application, but it won’t make as much sense to you if you’re just rendering static data. Flux is only going to feel unnatural and convoluted. Remember, the very point of Flux is to make data changes easy to reason about. (Bonus points if changes need to be persisted somewhere, for example to your server.) 
+you don’t need Flux if you don’t care about immediately reflecting changes in the UI.
+
+you might need flux if data needs to persist beyond the lifecycle of a component
+
+you might need flux if the same data is assembled from different sources and can be rendered in several places throughout the UI
+
+Flux reduces complicated problems to multiple plain objects 
+Flux isolates all data mutations to a particular layer in the application and establishes a completely predictable way to get data in and out of there. Caching, invalidation, optimistic updates, aggregation, pagination and a lot of other things get much easier when models are plain objects and don't try to manage complex updates of each other
+https://miro.medium.com/max/2753/1*AuVQqYolW6O60GTHTSgEyQ.png
+
+If you are serious about working with data, there has to be a single source of truth for all of it. Neither the UI nor other models should be able to mutate the data.
+In Flux, Store is the only place in your whole app that has privilege to mutate the data. When the data is wrong, you can trace exactly where the corruption occurred, because you know 100% it happened in the Store.
+
+https://www.fullstackreact.com/articles/redux-with-mark-erikson/
+
+Passing props in this manner can become confusing to trace. It also makes it harder to move components around because there is a coupling between
+
+the component and its parent (for props this component itself may not care about) and
+the component's children that it's passing props to (that again, the intermediate component may have no use for these props it's simply passing along).
+
+Redux, just like React, follows a strict, one-way data flow. This is beneficial for many reasons, as outlined in the Redux documentation:
+
+All data in an application follows the same lifecycle pattern, making the logic of your app more predictable and easier to understand. It also encourages data normalization, so that you don't end up with multiple, independent copies of the same data that are unaware of one another.
+
+https://twitter.com/dan_abramov/status/802564042648944642
+If most Redux code you write is boilerplate you should not be using it. It means there is not enough Redux-level logic to justify it.
+boilerplate redux => No action creators for things that are only dispatched in one place. No single-use thunks either.
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+REDUCERS FAQ
+
+1. How do I share state between two reducers? Do I have to use combineReducers?
+
+suggested structure for a Redux store
+split the state object into multiple “slices” or “domains” by key, and provide a separate reducer function to manage each individual data slice
+
+Flux pattern has multiple independent stores => Redux provides the combineReducers utility function to make the pattern easier
+
+combineReducers is set up so that data cannot be shared between reducers
+
+if you need to share data between reducers, 
+1 - consider shaping the state tree differently
+2 - you can use reduce-reducers to reduce multiple reducers into a single reducer from left to right
+	- difference between combineReducers and reduceReducers
+	- combineReducers creates nested state
+	- reduceReducers creates flat state
+reduceReducers - each reducer manage the same state. This is useful when chaining several reducers which are supposed to operate over the same state (this might happen for example when combining several reducer created using handleAction from redux-actions)
+3 - async action creators such as redux-thunk have access to the entire state through getState(). this means that with redux thunk, an action creator can retrieve additional data from the state, and put it in an action
+https://github.com/reduxjs/redux-thunk/blob/master/src/index.js
+https://gist.github.com/markerikson/ea4d0a6ce56ee479fe8b356e099f857e
+https://stackoverflow.com/questions/34570758/why-do-we-need-middleware-for-async-flow-in-redux
+
+https://redux.js.org/recipes/structuring-reducers/beyond-combinereducers#sharing-data-between-slice-reducers
+if sliceReducerA happens to need some data from sliceReducerB's slice of state in order to handle a particular action, or sliceReducerB happens to need the entire state as an argument, combineReducers does not handle that itself
+
+A third approach would be to use the reducer generated by combineReducers to handle the "simple" cases where each slice reducer can update itself independently, but also use another reducer to handle the "special" cases where data needs to be shared across slices. Then, a wrapping function could call both of those reducers in turn to generate the final result:
+
+https://redux.js.org/recipes/reducing-boilerplate
+Reducing Boilerplate
+You don't have to write action creators, you can use object literals and dispatch those directly
+dispatch({
+  type: 'ADD_TODO',
+  text: 'Use Redux'
+})
+
+having getState accessible in the action creator allows us to add logic around whether an action should go any further than the action creator
+
+action creators allow you to decouple additional logic around dispatching an action, from the actual components emitting those actions
+
+The switch statement is not the real boilerplate. The real boilerplate of Flux is conceptual: the need to emit an update, the need to register the Store with a Dispatcher, the need for the Store to be an object (and the complications that arise when you want a universal app).
+
+It's unfortunate that many still choose Flux framework based on whether it uses switch statements in the documentation. If you don't like switch, you can solve this with a single function, as we show below.
+
+--------------------------------------------
+Splitting Up Reducer Logic
+While there's no single rule for how long a function should be, it's generally agreed that functions should be relatively short and ideally only do one specific thing.
+
+reducers should all follow this structure
+(state, action) -> newState
+
+reducer: any function with the signature (state, action) -> newState (ie, any function that could be used as an argument to Array.prototype.reduce)
+
+slice reducer: a reducer that is being used to handle updates to one specific slice of the state tree, usually done by passing it to combineReducers
+
+higher-order reducer: a function that takes a reducer function as an argument, and/or returns a new reducer function as a result (such as combineReducers, or redux-undo
+
+https://blog.brainsandbeards.com/advanced-redux-patterns-selectors-cb9f88381d74
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+
+Organizing State
+Do I have to put all of my state into Redux? Should I ever use React's setState()?
+There is no right answer. Using local component state is fine. 
+Some common rules of thumb for determining what kind of data should be put into Redux:
+
+Do other parts of the application care about this data?
+Do you need to be able to create further derived data based on this original data?
+Is the same data being used to drive multiple components?
+Is there value to you in being able to restore this state to a given point in time (ie, time travel debugging)?
+Do you want to cache the data (ie, use what's in state if it's already there instead of re-requesting it)?
+Do you want to keep this data consistent while hot-reloading UI components (which may lose their internal state when swapped)?
+
+https://medium.com/@zackargyle/a-case-for-setstate-1f1c47cd3f73
+But what are libraries like Redux, Alt, or MobX really trying to do? It’s all about stripping out the imperative and replacing it with the declarative. 
+
+setState is asynchronous
+If your app is small, you don’t need a state manager, you need to learn to manage state.
+
+https://medium.com/react-ecosystem/how-to-handle-state-in-react-6f2d3cd73a0cv
+
+That means you need to understand how to handle state in React way before thinking about Flux.
+
+Advice - Dividing the components into two categories: containers and presentational. This way you’ll gain in maintainability and reusability.
+
+Don’t add another layer of complexity to your application if you don’t need it. Remember: simplicity matters.
+
+A React component is like a state machine that represents a user interface. Every user action potentially triggers a change in that state machine. Then, the new state is represented by a different React element.
+
+https://twitter.com/dan_abramov/status/749710501916139520
+
+Basically he says don’t keep state calculated from props, neither state that isn’t used in the render() method.
+
+don't set props to state, it will only set the state when the component is first created
+When new props arrive, the state remains the same thus the user interface doesn't update
+To get out of this issue, you'd then need to duplicate the source of truth in componentWillReceiveProps no no no
+
+Basically when you invoke setState() React schedules an update, computations are delayed until necessary.
+
+----------------------------------------------------------------------------------------
+
+https://www.freecodecamp.org/news/where-do-i-belong-a-guide-to-saving-react-component-data-in-state-store-static-and-this-c49b335e2a00/
+
+What should I hold in the Redux store, and what should I save in local state?
+But this question is actually too simplistic, because there are also two other ways you can store data for use in a component: static and this.
+
+The current best practice is to use local state to handle the state of your user interface (UI) state rather than data. For example, using a controlled component to fill out a form is a perfectly valid use of local state.
+
+A good way to think about when to use local state is to consider whether the value you’re storing will be used by another component. If a value is specific to only a single component (or perhaps a single child of that component), then it’s safe to keep that value in local state.
+
+It’s worth noting that when props are updated, it also triggers a re-render—just like when you update state.
+
+The Redux store is great for keeping application state rather than UI state. A perfect example is a user’s login status. Many of your components will need access to this information, and as soon as the login status changes, all of those components (the ones that are rendered, at least) will need to be re-rendered with the updated information.
+
+The use case for `this` is to store values for which a change should not trigger a re-render. For example, sockets are a perfect thing to store on this.
+
+Static methods and properties are rarely used, and should be used for utility functions that all components of a particular type would need.
+
+PropTypes are an example of a utility function where you would attach to something like a Button component, since every button you render will need those same values.
+
+----------------------------------------------------------------------------------------
+http://jamesknelson.com/5-types-react-application-state/
+
+Control State:
+Control state does not represent the application’s environment. Instead, it refers to the state which the user has input into the app. Form inputs, selected items, things like that.
+it is generally specific to a single view.
+only needs to be available to a specific view.
+don't use redux for this data type
+
+Do you have state which has a predictable shape and needs to be available everywhere within your application? Use Redux. What about state with an unpredictable shape which is limited to one view? Use setState.
+
+Session state:
+Session state contains information about the human being which is currently using your application.
+Session state is only ever read when a component is mounted.
+
+Location state:
+Location state is the information stored in the URL and the HTML5 History state object
+
+============================================
+https://hackernoon.com/shape-your-redux-store-like-your-database-98faa4754fd5
+
+How should we structure the data in our redux store?
+
+If you’re storing some data where each item has an id, you could shape your store as an Object or as an Array of Objects.
+
+Structure it like a database of rows indexed by id
+categories: {
+  '32o8wafe': {id: '32o8wafe', name: 'abs',  exercises: [...]},
+  'oaiwefjo': {id: 'oaiwefjo', name: 'arms', exercises: [...]},
+  '3oij2e3c': {id: '3oij2e3c', name: 'legs', exercises: [...]},
+}
+gives us the benefit of both easy iteration with Object.values(state.categories), and fast O(1) access to individual items
+It’s also compatible with the normalized (aka flat) shape that the redux docs recommend.
+
+As frontends start to approach the complexity of backends, we end up manually reimplementing things that have already existed for decades in the backend: databases, message queues, and other stereotypically server-only infrastructure. Many of the frontend patterns that are considered modern— like functional reactive programming?—?have been around since Windows 3.1
+
+https://github.com/redux-orm/redux-orm
+
+============================================
+https://codeburst.io/how-to-store-your-state-data-f17ceca37aa
+https://github.com/FrancescoSaverioZuppichini/Resource
+============================================
+https://github.com/reduxjs/redux/issues/1098
+
+Dan Abramov (gaearon) - The most practical suggestion I can give is to separate presentational and container components. Presentational components can be reused anywhere in the app, and you can generate container components from them using connect(). This is a good start for reusability.
+
+
+============================================
+
+Can I put functions, promises, or other non-serializable items in my store state?
+
+It's technically possible to insert non-serializable items into the store, but doing so can break the ability to persist and rehydrate the contents of a store, as well as interfere with time-travel debugging.
+
+============================================
+https://github.com/reduxjs/redux/issues/1248
+
+Is it ok and possible to store a react component inside a reducer?
+
+What you might want to do is give unique string IDs to some components and store those IDs in state. For example, you might store something like ModalTypes.LOGIN in state.openModalId, and later switch inside your <App> component to choose which modal component to show.
+
+https://github.com/reduxjs/redux/issues/1390
+
+COmponents can communicate with each other through global pub-sub - redux/flux is one way of setting this system up
+
+'gaearon said:
+It is advisable that both actions and state are always serializable. Therefore putting a component into the action doesn’t seem like the correct way, and I would encourage you not to do that.
+
+Instead of dispatching a component, dispatch some state that indicates which component should be loaded. In this case, it would seem that DefaultLayout would have to import every possible component it might need to load (which in my real usecase is many), then subscribe to our state and use a switch statement to determine which one of our loaded components should be placed into .receive-any-component. This feels better from the redux end but feels crappy that DefaultLayout is aware of every possible component that it might need to load.
+
+This is exactly what I would suggest. I don’t think at all it is bad. You can have a separate module that does this.
+
+============================================
+
+https://github.com/reduxjs/redux/issues/1793
+But in the end, that's merely strong prescriptive advice. I can give an opinion, Dan can give an opinion, anyone else can give an opinion, but it's all just opinions. Ultimately, since it's your app, the end decision on any aspect is indeed entirely up you. If you have considered your options, and are willing to trade off time traveling for your specific use case, then sure, go ahead, put React Elements in your store.
+
+============================================
+How do I organize nested or duplicate data in my state?
+Data with IDs, nesting, or relationships should generally be stored in a “normalized” fashion: each object should be stored once, keyed by ID, and other objects that reference it should only store the ID rather than a copy of the entire object. It may help to think of parts of your store as a database, with individual “tables” per item type. Libraries such as normalizr and redux-orm can provide help and abstractions in managing normalized data.
+
+============================================
+https://redux.js.org/advanced/async-actions
+asynchronously dispatched actions can be fired from action creators after api requests - if an error occurs this can trigger a 'fail' dispatched action to the reducer to update state
+- how we've done it for useReducer, it can be done with Redux
+- getState can be used in a thunk method to determine, prior to repeated fetching, whether a network request is even needed or if the requested data is already available
+- this is a great benefit of the combination of redux thunk with redux
+
+============================================
+
+https://medium.com/@adamrackis/querying-a-redux-store-37db8c7f3b0f
+Any component wrapped with connect() call will receive a dispatch function as a prop, and any state it needs from the global state. In most cases you will only pass the first argument to connect(), which is a function we call a selector. This function takes the global Redux store’s state, and returns the props you need for the component. In the simplest case, you can just return the state given to you (i.e. pass identity function), but you may also wish to transform it first.
+
+https://github.com/reduxjs/reselect
+a selector library for Redux that provides memoized-selectors
+
+
+don't nest state, keep it normalized/flat
+Storing subjects as a hash, keyed by _id yields a much better result
+
+Pushing the DBMS analogy further, we’ve basically created a view on our data. The downside is that every single time our store changes, the subject stacking will be re-worked, just as the underlying queries are re-executed whenever you query a view.
+
+
+============================================
+Redux and forms
+https://github.com/redux-form/redux-form
+The only good reason, in the author's view, to use Redux Form in your application is if you need really tight coupling of your form data with Redux, specifically if you need to subscribe to it and modify it from parts of your application far from your form component, e.g. on another route. If you don't have that requirement, use ?? React Final Form.
+React-Final-Form
+https://final-form.org/docs/react-final-form/examples/simple
+
+
+============================================
+additional resources on Redux Management
+https://github.com/markerikson/react-redux-links/blob/master/redux-ui-management.md
+
+
+============================================
+Can or should I create multiple stores? Can I import my store directly, and use it in components myself?
+Flux pattern describes having multiple "stores" in an app, each holding a different area of domain data
+------> potentially introduces issues such as needing to have one store dependent on another store having to wait for that store to update
+-------> this is not necessary in Redux
+========> separation between data domains is already achieved by splitting a single reducer into smaller reducers
+
+it is possible, but it is the intended pattern to only have one store
+==========> this enables redux dev tools, makes persisting data and rehydrating data simpler, and simplifies the subscription logic
+
+VALID REASONS FOR MULTIPLE REDUX STORES
+- solving performance issue caused by too frequent updates of some part of the state, when confirmed by profiling the app
+- isolating a redux app as a component in a bigger application, giving it its own store
+
+try reducer composition first, and think about the problem you are trying to solve
+
+If you create a store instance and export it from a module, it will become a singleton. This means it will be harder to isolate a Redux app as a component of a larger app, if this is ever necessary, or to enable server rendering, because on the server you want to create separate store instances for every request.
+
+React-Redux connect() function does look for props.store if it exists, but better to have root component wrapped in Provider and let react-redux take care of it
+
+============================================
+https://github.com/reduxjs/redux/issues/1436
+Singleton stores don’t work well on the server because usually you want to isolate data for every request and perform some asynchronous data fetching. Therefore you would want to have a store per request on the server. However technically you can keep using this pattern if you are sure you are never going to need server rendering. Also, using subscribe() directly is a worse idea than using connect() from React Redux. connect() includes many optimizations that are hard to write by hand so if you care about performance you should probably use it instead.
+
+============================================
+https://stackoverflow.com/questions/33619775/redux-multiple-stores-why-not
+Having multiple reducers that are further split into a reducer tree is how you keep updates modular in Redux. If you don't recognize this and go for multiple stores without fully understanding reducer composition first, you will miss many benefits of Redux single store architecture:
+
+A single store makes Redux DevTools time travel features possible.
+
+A single store guarantees that the subscriptions are called only after the dispatch has been processed. That is, by the time listeners are notified, the state has been fully updated. 
+
+In some very large enterprise apps with hundreds or thousands of reducers, it's often useful to think of different areas of the app as entirely separate apps. In those cases (where it really is multiple apps that share a domain name), I use multiple stores.
+
+For example, I tend to treat the following common functionality areas as separate apps:
+
+Admin
+Analytics / data vis dashboards
+Billing management & purchase flows
+Enterprise account team/permission management
+
+The best way to manage very large apps is to treat them like a composition of many smaller apps.
+
+============================================
+https://stackoverflow.com/questions/35667249/accessing-redux-state-in-an-action-creator
+
+Dan Abramov - "I think that passing data such as state.something.items in an action creator is definitely an anti-pattern and is discouraged because it obscured the change history: if there is a bug and items are incorrect, it is hard to trace where those incorrect values come from because they are already part of the action, rather than directly computed by a reducer in response to an action. So do this with care."
+
+Current Redux maintainer Mark Erikson says it's fine and even encouraged to use getState in thunks - that's why it exists. He discusses the pros and cons of accessing state in action creators in his blog post Idiomatic Redux: Thoughts on Thunks, Sagas, Abstraction, and Reusability.
+
+Ideally, your actions should not be “fat” and should contain as little information as possible, but you should feel free to do what works best for you in your own application. 
+https://egghead.io/lessons/javascript-redux-colocating-selectors-with-reducers
+
+
+============================================
+Is it okay to have more than one middleware chain in my store enhancer? What is the difference between next and dispatch in a middleware function?
+
+Redux middleware act like a linked list. middleware functions call next(action) to pass action along to next middleware in line, call ldispatch(action) to restart the processing at the beginning of the list, or do nothing at all to stop the action from being processed further.
+
+chain of middleware is defined by arguments passed to the applyMiddleware function used when creating a store
+
+multiple chains will not work correctly, they will have distinctly different chain references that are disconnected
+
+
+============================================
+https://redux.js.org/advanced/middleware
+
+best feature of middleware is that it is composable in a chain - you can use multiple middleware in a single project
+Redux middleware provides a third party extension point between dispatching an action, and the moment it reaches the reducer
+
+It provides a third-party extension point between dispatching an action, and the moment it reaches the reducer.
+
+Middleware is created by composing functionality that wraps separate cross-cutting concerns which are not part of your main execution task.
+
+It only exposes a subset of the store API to the middleware: dispatch(action) and getState().
+
+It does a bit of trickery to make sure that if you call store.dispatch(action) from your middleware instead of next(action), the action will actually travel the whole middleware chain again, including the current middleware. This is useful for asynchronous middleware, as we have seen previously. There is one caveat when calling dispatch during setup, described below.
+
+To ensure that you may only apply middleware once, it operates on createStore() rather than on store itself. Instead of (store, middlewares) => store, its signature is (...middlewares) => (createStore) => createStore.
+
+
+when you put applyMiddleware in the createStore function, dispatch is now connected to the middleware functions. dispatch will run through those functions first, prior to ultimately reaching reducers
+
+The functions to compose. Each function is expected to accept a single parameter. Its return value will be provided as an argument to the function standing to the left, and so on.
+
+from docs - https://redux.js.org/api/compose
+All compose does is let you write deeply nested function transformations without the rightward drift of the code. Don't give it too much credit!
+
+middleware are called store enhancers in docs and in code - they modify the store
+
+https://redux.js.org/advanced/async-flow
+Asynchronous middleware like redux-thunk or redux-promise wraps the store's dispatch() method and allows you to dispatch something other than actions, for example, functions or Promises. Any middleware you use can then intercept anything you dispatch, and in turn, can pass actions to the next middleware in the chain.
+When the last middleware in the chain dispatches an action, it has to be a plain object. This is when the synchronous Redux data flow takes place.
+
+============================================
+https://paulkogel.gitbooks.io/redux-docs/content/docs/api/compose.html
+finalCreateStore = applyMiddleware(...middleware)(createStore);
+let store = finalCreateStore(reducer);
+together with how we write createStore
+const store = createStore(
+    reducers,
+    applyMiddleware(reduxThunk)
+);
+we can see that the middleware transforms createStore, thus store
+what we are calling on the dispatch method if middleware is applied, isn't just the dispatch that is plain, but a dispatch that has been modified to do transformations and then call the next middleware lined up or then the actual state.dispatch function to hit the reducers
+
+============================================
+
+https://redux.js.org/api/applymiddleware
+Middleware is the suggested way to extend Redux with custom functionality. Middleware lets you wrap the store's dispatch method for fun and profit. The key feature of middleware is that it is composable. Multiple middleware can be combined together, where each middleware requires no knowledge of what comes before or after it in the chain.
+
+This way, there is a single standard way to extend dispatch in the ecosystem, and different middleware may compete in expressiveness and utility.
+
+Each middleware receives Store's dispatch and getState functions as named arguments, and returns a function. That function will be given the next middleware's dispatch method, and is expected to return a function of action calling next(action) with a potentially different argument, or at a different time, or maybe not calling it at all. The last middleware in the chain will receive the real store's dispatch method as the next parameter, thus ending the chain. 
+
+think about redux thunk, just by applying the middleware we are able to create more complex action creators. 
+Middleware only wraps the store's dispatch function. Technically, anything a middleware can do, you can do manually by wrapping every dispatch call, but it's easier to manage this in a single place and define action transformations on the scale of the whole project.
+
+
+============================================
+How do I subscribe to only a portion of the state? Can I get the dispatched action as part of the subscription?
+
+not without UI bindings like React-Redux
+store.subscribe is for any changes with the state - you'd have to do .getState() to check values of certain parts
+there are other packages available for subscribing to state changes in intelligent ways - redux-subscription is one
+
+===========================================
+https://redux.js.org/api/store
+A store is not a class. It's just an object with a few methods on it.
+Flux notes: 
+Redux doesn't have a Dispatcher or support many stores.
+Instead, there is just a single store with a single root reducing function
+This is similar to how there is just one root component in a React app, but it is composed out of many small components.
+
+during setup, the reducing functions are called to get initial state and add the reducers to the getstate function
+
+reducers may not dispatch actions
+In Redux, subscriptions are called after the root reducer has returned the new state, so you may dispatch in the subscription listeners. You are only disallowed to dispatch inside the reducers because they must have no side effects. If you want to cause a side effect in response to an action, the right place to do this is in the potentially async action creator.
+
+subscribe function - called a change listener
+you can call dispatch from a change listener
+it is a low-level API - instead of using it directly, you'll use UI bindings
+
+if callback used to react to state changes, may want to write a custom observeStore utility - RxJS
+
+you can unsubscribe from the change listener by invoking the function returned by subscribe
+
+replaceReducer(nextReducer)
+Replaces the reducer currently used by the store to calculate the state.
+
+It is an advanced API. You might need this if your app implements code splitting, and you want to load some of the reducers dynamically. You might also need this if you implement a hot reloading mechanism for Redux.
+
+Arguments
+nextReducer (Function) The next reducer for the store to use.
+
+
+============================================
+Actions
+https://redux.js.org/faq/actions#why-should-type-be-a-string-or-at-least-serializable-why-should-my-action-types-be-constants
+
+serializing - The process whereby an object or data structure is translated into a format suitable for transferral over a network, or storage
+
+Why should type be a string, or at least serializable? 
+enables time travel debugging, and recording and replaying actions. it is okay to use Symbols, Promises or other non-serializable values in an action if the action is intended for use by middleware. ACTIONS ARE ONLY NEEDED TO BE SERIALIZABLE BY THE TIME THEY ACTUALLY ARE PASSED TO REDUCERS
+Redux checks that action is plain object, and type is defined
+Why should my action types be constants?
+encapsulation and centralization of common used pieces of code
+makes maintaining code easier
+============================================
+https://redux.js.org/recipes/reducing-boilerplate#actions
+Reducing Boilerplate - Actions
+ If there are no serializable plain object actions, it is impossible to record and replay user sessions, or to implement hot reloading with time travel. If you'd rather modify data directly, you don't need Redux.
+action types good
+Reducing Boilerplate - Action Creators
+action creators allows us to use one function which can easily be modified to have all instances of it be updated automatically instead of having to update each inline dispatch call individually
+Action creators let you decouple additional logic around dispatching an action, from the actual components emitting those actions.
+CONSIDER MAKING AN ACTION CREATOR FACTORY FUNCTION THAT WILL RETURN ACTION CREATORS
+function makeActionCreator(type, ...argNames) {
+  return function(...args) {
+    const action = { type }
+    argNames.forEach((arg, index) => {
+      action[argNames[index]] = args[index]
+    })
+    return action
+  }
+}
+
+HERE argNames is stuff you want to add to the action object as additional data to send to the reducer
+
+Middleware is not about “letting you dispatch functions”. It's about letting you dispatch anything that the particular middleware you use knows how to handle. Thunk middleware adds a specific behavior when you dispatch functions, but it really depends on the middleware you use.
+
+depending on what happens in your action creators, you can potentially redirect action with a different type
+success,failure, request statements directed by results of fetch request
+
+The real boilerplate of Flux is conceptual: the need to emit an update, the need to register the Store with a Dispatcher, the need for the Store to be an object (and the complications that arise when you want a universal app).
+
+It's unfortunate that many still choose Flux framework based on whether it uses switch statements in the documentation. If you don't like switch, you can solve this with a single function, as we show below.
+
+GENERATING REDUCERS
+export const todos = createReducer([], {
+  [ActionTypes.ADD_TODO]: (state, action) => {
+    const text = action.text.trim()
+    return [...state, text]
+  }
+})
+
+takes in two parameters, initial state and an object with functions for reducers that will map with the dispatched action type
+
+function createReducer(initialState, handlers) {
+  return function reducer(state = initialState, action) {
+    if (handlers.hasOwnProperty(action.type)) {
+      return handlers[action.type](state, action)
+    } else {
+      return state
+    }
+  }
+}
+notice that handlers is passed into the returned function. handlers.hasOwnProperty is used to determine if the correct reducer handler is set up based on action types, if not state is returned. seems similar but less boilerplate than the logic
+
+if action type matches a key in handlers, then that function is ran to update the state
+
+seems like they are advocating for factory functions
+============================================
+https://redux.js.org/introduction/three-principles
+Three Principles of Redux
+1. Single Source of Truth
+	- state of WHOLE application is stored in an object tree within a single store - makes difficult tasks easy to implement when all together
+2. State is read-only PERIOD - NO SIDE EFFECTS
+- emit action objects describing what happened - actions just express an intent to transform the state
+- no race conditions to watch out for 
+3. Changes are made with pure functions
+to specify how the state tree is transformed by actions, you write pure reducers that take previous state and an action
+
+============================================
+https://github.com/reduxjs/redux/issues/384
+How about a recommendation to write action types in the "imperative mood" (a la the famous Chris Beams' Git commit message style guide). So in this case INCREASE_COUNT works well because it is in the imperative mood, i.e. "written as if giving a command or instruction", and conveys the notion that creating an action just signifies a wish or intent that something should happen at a point in time.
+
+============================================
+https://github.com/reduxjs/redux/issues/628
+Describing Redux as having “action type string constants” is as meaningless as describing a physics calculation function as using “integer constants”. Constants is what you write in your code—or generate if you like. By the point they get to Redux, they're just strings. How you get those strings is entirely your concern.
+If actions could always mirror the state tree, there would be no use in Redux (or Flux) because you'd just update the immutable tree directly. In real, large apps, the shape of the state tree rarely corresponds intuitively to the way you think about it. For example, you might want to express “follow user” action, but in reality, it corresponds to updates to state.followersByUserId[followedUserId], state.followedByUserId[currentUserId], state.users[followedUserId], and state.users[currentUserId]. As the app grows, the same “simple” action may correspond to entirely unrelated state updates. That's the problem Redux and Flux are solving, letting you separate the descriptions of these updates (reducers), while keeping a single way to cause them (action).
+
+============================================
+https://github.com/reduxjs/redux/issues/1024
+
+If we force users to declare reducers as object maps, many powerful patterns that are possible with functions become harder and non-obvious. This is why we don't encourage users to take shortcuts. If you discover a shortcut and find it convenient, use it, but we don't want to limit your imagination because otherwise you won't come up with reducer composition-based solutions like the code above.
+
+============================================
+https://redux.js.org/faq/actions#is-there-always-a-one-to-one-mapping-between-reducers-and-actions
+Is there always a one-to-one mapping between reducers and actions?
+No. we suggest you write independent small reducer functions that are responsible for updates to a specific slice of state. We call this pattern "reducer composition." A given action could be handled by all, some, or none of them. THis keeps components decoupled from the actual data changes, as one action may affect different parts of the state tree, and there is no need for the component to be aware of this.
+============================================
+https://redux.js.org/basics/reducers
+It's a good idea to think of its shape before writing any code. What's the minimal representation of your app's state as an object?
+In a more complex app, you're going to want different entities to reference each other. We suggest that you keep your state as normalized as possible, without any nesting. Keep every entity in an object stored with an ID as a key, and use IDs to reference it from other entities, or lists. Think of the app's state as a database. 
+It's called a reducer because it's the type of function you would pass to Array.prototype.reduce(reducer, ?initialValue). It's very important that the reducer stays pure. Things you should never do inside a reducer:
+
+Mutate its arguments;
+Perform side effects like API calls and routing transitions;
+Call non-pure functions, e.g. Date.now() or Math.random().
+Given the same arguments, it should calculate the next state and return it. No surprises. No side effects. No API calls. No mutations. Just a calculation.
+
+https://immutable-js.github.io/immutable-js/
+
+
+https://github.com/reduxjs/redux/issues/428#issuecomment-129223274 ===> shows how combinereducers can be used multiple times and shows how you can do the same thing that combineReducers does without the function
+you can do combineReducers inside of combineReducers
+
+============================================
+How can I represent “side effects” such as AJAX calls? Why do we need things like “action creators”, “thunks”, and “middleware” to do async behavior?
+That code is no longer purely a function of its inputs, and the interactions with the outside world are known as “side effects”
+However, Redux's middleware makes it possible to intercept dispatched actions and add additional complex behavior around them, including side effects.
+
+https://github.com/redux-saga/redux-saga
+
+============================================
+https://medium.com/javascript-and-opinions/redux-side-effects-and-you-66f2e0842fc3
+dispel the notion that we need an alternative to thunks because of testing.
+when unit testing, declarative side effects such as fetching data, instead of mocking fetch, one can simply inspect the resulting side effect to make sure it describes the call directly. the actual fetch function is never called
+
+when evaluating new tools to use with redux, evaluate the following:
+1. want it to have declarative side effects - avoids callback hell, simplifies the control flow and makes testing easier
+2. whether or not asynchronous actions are allowed
+3. are there any changes to redux pattern? redux loop puts side effects in reducers which is not something that redux by itself allows
+4. Comparison to Elm or FP
+I like to see these brought up in the conversation. “We’re doing things this way because it is a problem that was solved in FP language XYZ and it worked well”. Let’s not reinvent the wheel.
+
+============================================
+redux thunk examples
+https://gist.github.com/markerikson/ea4d0a6ce56ee479fe8b356e099f857e
+
+============================================
+https://github.com/reduxjs/redux/issues/1139
+redux sagas
+ Side Effects are not simply server updates, dom storage, navigation ...etc. A side effect is anything that needs to be done imperatively at a specific point of time (i.e. is all about ordering things), so waiting for user actions, and dispatching actions to the store are also considered side effects in the model.
+
+============================================
+What async middleware should I use? How do you decide between thunks, sagas, observables, or something else?
+thunks are best for complex synchronous logic and simple async logic (axios). With the use of async/await, it can be reasonable to use thunks for some more complex promise-based logic as well
+sagas are best for complex async logic and decoupled background thread-type behavior especially if you need to listen to dispatched actions - require generator functions
+observablees rely on RxJS to implement async behavior
+sagas and observables have same use case, so don't add both in same project
+however, thunks are different so you can use thunks for simple stuff and sagas or observables for more difficult parts
+
+============================================
+https://decembersoft.com/posts/what-is-the-right-way-to-do-asynchronous-operations-in-redux/
+only steadfast rule is that you musn't put asynchronous code in your reducer.
+by doing so, you're simultaneously suffering all the overhead of Redux and sacrificing many of the benefits
+goes through examples of how to use all of the asynchronous side effect middlewares
+
+============================================
+https://decembersoft.com/posts/redux-thunk-vs-redux-saga/
+an action is a plain javascript object with a type field, and optional payload, meta, and error fields
+
+Redux Thunk modifies the types of actions you can dispatch
+thunks
+thunks return functions, thus allowing for additional complexity to occur
+there's a loop that redux thunk runs, watching the type of returned value from the action creator - the loop continues until the resolved value is a plain js object
+with redux thunk, you get parts of the store back so that you can have dispatch and getState at your disposal
+with async side effects, the inner function will return a promise until that promise is resolved, at which point it will dispatch again
+
+Redux Saga express complex application logic as pure functions called sagas
+this is desirable from testing standpoint because they are predictable and repeatable, which makes them relatively easy to test
+
+sagas use generator functions
+execution jumps in and out of a generator everywhere yield is used
+yield causes the generator to pause and return the yielded value
+
+once the saga is registered with Redux-Saga, it will begin executing immediately. But then the yield take will pause the saga until anaction with the type in the take function is dispatched to the store.
+the call function will call the api, thus causing the async side effect to start
+
+yield call will pause the generator function until the async side effect has finished
+yield put will push the result of the side effect on to the reducers
+
+biggest difference
+Thunks can never act in response to an action. Redux-Saga, on the other hand, subscribes to the store and can trigger a saga to run or continue when a certain action is dispatched.
+
+============================================
+https://medium.com/@shoshanarosenfield/redux-thunk-vs-redux-saga-93fe82878b2d
+thunk - an intermediary function
+- a function that acts as a wrapper in that it wraps an expression to delay its evaluation
+- in the context of Redux, Redux-Thunk middleware allows action creators to return a function instead of a plain javascript action object. this thunk can be used to delay an action until the fulfillment of an asynchronous line of code
+
+there are two parts to Redux-Thunk:
+1. a thunk creator - an action creator that returns a thunk => aka asynchronous action creator
+2. a thunk - function that is returned from thunk creator and accepts dispatch and getState as arguments
+
+the reason that redux thunk is needed is because Redux alone only supports synchronous data flow
+middleware can be set up to do a bunch of stuff in between the original dispatch and when the action gets to the store reducers
+
+Redux Saga
+saga is similar to a separate thread in your application that's solely responsible for side effects
+unlike Redux-Thunk which utilizes callback functions, a Redux-Saga thread can be started, paused and cancelled from the main application with normal Redux actions
+both have full access to Redux application state and it can dispatch Redux actions as well
+utilizes generator functions
+generators - - - 
+just calling a generator function will do nothing - you have to run the function with required params, which returns an iterator object
+then with the iterator, invoking its next method, theh function runs through the code breaking AFTER each yield
+//generator function definition
+function* generator(i) {
+	yield i;
+	yield i + 10;
+}
+
+//creation of iterator object
+var gen = generator(10);
+//running the function - this returns an object with both a value from the last yield executed and the status of the progress through the generator function - will be false until the last yield function has run thus indicating whether the function has yielded its last value
+console.log(gen.next());
+
+the benefit to Redux-Saga in comparison to Redux-Thunk is that you can avoid callback hell meaning that you can avoid passing in functions and calling them inside
+testing is facilitated by returned values for call and put redux saga methods
+Redux-Thunk returns promises which are more difficult to test
+
+===========================================
+https://www.reddit.com/r/reactjs/comments/8vglo0/react_developer_map_by_adamgolab/
+
+sagas are powerful, but most apps don't need them
+Mark Erickson - thunks are best for complex synchronous logic and simple async logic
+with async/await, Redux Thunk may be reasonable to do some more complex promise-based logic in thunks
+Sagas are best for very complex async logic and decoupled background thread type behavior especially if you need to listen to dispatched actions
+"So, my advice is that people should use thunks until it becomes very obvious that they really need sagas or observables."
+"my own app does use both, because uI use them for different things"
+
+What "boilerplate" do thunks need? You referring to the way a thunk action creator returns the actual thunk function?
+
+Sagas generally require more setup than thunks, because you need to set up your "root saga" and run it, and then have "watcher sagas" that listen for specific actions to kick off logic. That also usually means more action types.
+
+============================================
+https://stackoverflow.com/questions/34930735/pros-cons-of-using-redux-saga-with-es6-generators-vs-redux-thunk-with-es2017-asy
+
+The first thing to notice is that we're calling the api functions using the form yield call(func, ...args). call doesn't execute the effect, it just creates a plain object like {type: 'CALL', func, args}. The execution is delegated to the redux-saga middleware which takes care of executing the function and resuming the generator with its result.
+
+shows how to test a saga
